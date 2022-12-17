@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License along with
 // EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
-#define _XOPEN_SOURCE 700
+#define _GNU_SOURCE
 
 #include <stddef.h>
 #include <stdio.h>
@@ -24,10 +24,7 @@ int key_matches(const char* haystack, const char* needle) {
     const char* const end = strchr(haystack, '=');
     const size_t len = end - haystack;
 
-    char buf[len + 1];
-    memcpy(buf, haystack, len);
-    buf[len] = '\0';
-    return strstr(buf, needle) != NULL;
+    return memmem(haystack, len, needle, strlen(needle)) != NULL;
 }
 
 int main(int argc, char * argv[], char * envp[]) {
