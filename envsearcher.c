@@ -20,18 +20,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-int key_matches(const char* haystack, const char* needle) {
+int key_matches(const char* haystack, const char* needle, size_t needle_len) {
     const char* const end = strchr(haystack, '=');
     const size_t len = end - haystack;
 
-    return memmem(haystack, len, needle, strlen(needle)) != NULL;
+    return memmem(haystack, len, needle, needle_len) != NULL;
 }
 
 int main(int argc, char * argv[], char * envp[]) {
     char* needle = (argc > 1) ? argv[1] : "";
+    const size_t needle_len = strlen(needle);
 
     for (char** cur = envp; *cur; ++cur) {
-        if (key_matches(*cur, needle)) puts(*cur);
+        if (key_matches(*cur, needle, needle_len)) puts(*cur);
     }
 
     return EXIT_SUCCESS;
