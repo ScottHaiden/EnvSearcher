@@ -28,7 +28,9 @@ int key_matches(const char* haystack, const char* needle, size_t needle_len) {
 }
 
 int main(int argc, char * argv[], char * envp[]) {
-    char* needle = (argc > 1) ? argv[1] : "";
+    if (argc > 2) return EXIT_FAILURE;
+
+    char* const needle = (argc > 1) ? argv[1] : "";
     const size_t needle_len = strlen(needle);
 
     for (char** cur = envp; *cur; ++cur) {
