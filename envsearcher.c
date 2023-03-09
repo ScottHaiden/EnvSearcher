@@ -19,6 +19,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdbool.h>
+
+typedef struct {
+    int arg_index;
+    char delim;
+} options;
+
+options parse_args(int argc, char** argv) {
+    options ret = {.arg_index = 1, .delim = '\n'};
+
+    while (true) {
+        const int opt = getopt(argc, argv, "zZ");
+        if (opt == -1) break;
+        switch (opt) {
+            case 'z': ret.delim = '\0'; break;
+            case 'Z': ret.delim = '\n'; break;
+            case '?': exit(2); break;
+        }
+    }
+
+    ret.arg_index = optind;
+    return ret;
+}
 
 int key_matches(const char* haystack, const char* needle, size_t needle_len) {
     const char* const end = strchr(haystack, '=');
@@ -28,13 +52,17 @@ int key_matches(const char* haystack, const char* needle, size_t needle_len) {
 }
 
 int main(int argc, char * argv[], char * envp[]) {
-    if (argc > 2) return EXIT_FAILURE;
+    const options options = parse_args(argc, &argv[0]);
 
-    char* const needle = (argc > 1) ? argv[1] : "";
+    const int nargs = argc - options.arg_index;
+    if (nargs > 1) exit(2);
+
+    char* const needle = (nargs == 1) ? argv[options.arg_index] : "";
     const size_t needle_len = strlen(needle);
 
     for (char** cur = envp; *cur; ++cur) {
-        if (key_matches(*cur, needle, needle_len)) puts(*cur);
+        if (!key_matches(*cur, needle, needle_len)) continue;
+        printf("%s%c", *cur, options.delim);
     }
 
     return EXIT_SUCCESS;
