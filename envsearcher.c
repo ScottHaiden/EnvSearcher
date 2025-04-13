@@ -14,17 +14,19 @@
 // EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
 #define _GNU_SOURCE
+#define _XOPEN_SOURCE 700
 
+#include <assert.h>
 #include <spawn.h>
+#include <stdbool.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/wait.h>
-#include <stdbool.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -82,14 +84,17 @@ char* run_printf(char* key, char* value) {
 
     struct stat buf;
     if (fstat(fd, &buf) < 0) DIE("fstat");
-    if (buf.st_size == 0) DIE("zero length file");
+    const size_t flen = buf.st_size;
 
-    char* const mapped = mmap(NULL, buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (mapped == MAP_FAILED) DIE("mmap");
+    char* const ret = calloc(flen + 1, sizeof(*ret));
+    if (!ret) DIE("calloc");
 
-    char* const ret = strdup(mapped);
-    if (munmap(mapped, buf.st_size)) DIE("munmap");
-    if (close(fd)) DIE("close memfd");
+    if (lseek(fd, 0, SEEK_SET)) DIE("lseek");
+    const ssize_t amount = read(fd, ret, flen);
+    if (amount < 0) DIE("read");
+    assert(((size_t)(amount)) == flen);
+
+    if (close(fd)) DIE("close");
 
     return ret;
 }
