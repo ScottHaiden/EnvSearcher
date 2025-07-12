@@ -29,38 +29,40 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "keyval.h"
+
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 typedef struct {
     int arg_index;
     char delim;
-    bool quote;
+    char* (*quote_fn)(char*, char*);
 } options;
 
+char* run_printf(char* key, char* value);
+char* normal(char* key, char* value);
+
 options parse_args(int argc, char** argv) {
-    options ret = {.arg_index = 1, .delim = '\n', .quote = false};
+    options ret = {
+        .arg_index = 1,
+        .delim = '\n',
+        .quote_fn = &normal,
+    };
 
     while (true) {
-        const int opt = getopt(argc, argv, "zZqQ");
+        const int opt = getopt(argc, argv, "zZqn");
         if (opt == -1) break;
         switch (opt) {
-            case 'z': ret.delim = '\0'; break;
-            case 'Z': ret.delim = '\n'; break;
-            case 'q': ret.quote = true; break;
-            case 'Q': ret.quote = false; break;
-            case '?': exit(2); break;
+            case 'z': ret.delim = '\0';           break;
+            case 'Z': ret.delim = '\n';           break;
+            case 'q': ret.quote_fn = &run_printf; break;
+            case 'n': ret.quote_fn = &normal;     break;
+            case '?': exit(2);                    break;
         }
     }
 
     ret.arg_index = optind;
     return ret;
-}
-
-int key_matches(const char* haystack, const char* needle, size_t needle_len) {
-    const char* const end = strchr(haystack, '=');
-    const size_t len = end - haystack;
-
-    return memmem(haystack, len, needle, needle_len) != NULL;
 }
 
 char* run_printf(char* key, char* value) {
@@ -99,16 +101,9 @@ char* run_printf(char* key, char* value) {
     return ret;
 }
 
-char* quote(const char* kv) {
-    char* const copied = strdup(kv);
-    char* const end = strchr(copied, '=');
-    *end = '\0';
-    
-    char* const key = copied;
-    char* const value = &end[1];
-    char* const ret = run_printf(key, value);
-    free(copied);
-
+char* normal(char* key, char* value) {
+    char* ret = NULL;
+    asprintf(&ret, "%s=%s", key, value);
     return ret;
 }
 
@@ -122,14 +117,16 @@ int main(int argc, char * argv[], char * envp[]) {
     const size_t needle_len = strlen(needle);
 
     for (char** cur = envp; *cur; ++cur) {
-        if (!key_matches(*cur, needle, needle_len)) continue;
-        if (options.quote) {
-            char* const line = quote(*cur);
-            printf("%s%c", line, options.delim);
-            free(line);
-        } else {
-            printf("%s%c", *cur, options.delim);
+        keyval* const kv = keyval_new(*cur);
+        if (!kv) continue;
+
+        if (strstr(kv->key, needle)) {
+            char* const message = options.quote_fn(kv->key, kv->value);
+            printf("%s%c", message, options.delim);
+            free(message);
         }
+
+        free(kv);
     }
 
     return EXIT_SUCCESS;

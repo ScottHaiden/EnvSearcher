@@ -22,8 +22,10 @@ prefix := $(HOME)/.local
 
 all: $(EXES)
 
+envsearcher: keyval.o
+
 install: all
 	cp $(EXES) $(prefix)/bin/
 
 clean:
-	rm -f $(EXES)
+	rm -f $(EXES) *.o
