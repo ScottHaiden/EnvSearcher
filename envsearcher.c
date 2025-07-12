@@ -41,6 +41,7 @@ typedef struct {
 
 char* run_printf(char* key, char* value);
 char* normal(char* key, char* value);
+char* hex_encode(char* key, char* value);
 
 options parse_args(int argc, char** argv) {
     options ret = {
@@ -50,13 +51,14 @@ options parse_args(int argc, char** argv) {
     };
 
     while (true) {
-        const int opt = getopt(argc, argv, "zZqn");
+        const int opt = getopt(argc, argv, "zZqnx");
         if (opt == -1) break;
         switch (opt) {
             case 'z': ret.delim = '\0';           break;
             case 'Z': ret.delim = '\n';           break;
             case 'q': ret.quote_fn = &run_printf; break;
             case 'n': ret.quote_fn = &normal;     break;
+            case 'x': ret.quote_fn = &hex_encode; break;
             case '?': exit(2);                    break;
         }
     }
@@ -104,6 +106,44 @@ char* run_printf(char* key, char* value) {
 char* normal(char* key, char* value) {
     char* ret = NULL;
     asprintf(&ret, "%s=%s", key, value);
+    return ret;
+}
+
+char* hex_encode(char* key, char* value) {
+    static const char kTable[] = 
+        "000102030405060708090a0b0c0d0e0f"
+        "101112131415161718191a1b1c1d1e1f"
+        "202122232425262728292a2b2c2d2e2f"
+        "303132333435363738393a3b3c3d3e3f"
+        "404142434445464748494a4b4c4d4e4f"
+        "505152535455565758595a5b5c5d5e5f"
+        "606162636465666768696a6b6c6d6e6f"
+        "707172737475767778797a7b7c7d7e7f"
+        "808182838485868788898a8b8c8d8e8f"
+        "909192939495969798999a9b9c9d9e9f"
+        "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf"
+        "b0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+        "c0c1c2c3c4c5c6c7c8c9cacbcccdcecf"
+        "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
+        "e0e1e2e3e4e5e6e7e8e9eaebecedeeef"
+        "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
+
+    const size_t keylen = strlen(key);
+    const size_t vallen = strlen(value);
+    const size_t retsize = keylen + 1 + vallen * 2 + 1;
+    char* const ret = calloc(retsize, sizeof(*ret));
+
+    char* cur = ret;
+    cur += snprintf(cur, retsize, "%s=", key);
+
+    for (unsigned i = 0; i < vallen; ++i) {
+        const char c = value[i];
+        const size_t tableind = c * 2;
+        memcpy(cur, &kTable[tableind], 2);
+        cur += 2;
+    }
+    assert(cur == &ret[retsize - 1]);
+
     return ret;
 }
 
