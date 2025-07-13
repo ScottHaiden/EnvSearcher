@@ -16,7 +16,7 @@
 CFLAGS := -std=c11 -O3 -pipe -march=native -flto -fpic -pie
 EXES := envsearcher
 
-prefix := $(HOME)/.local
+prefix := /usr/local
 
 .PHONY: all clean install
 
@@ -25,7 +25,7 @@ all: $(EXES)
 envsearcher: keyval.o
 
 install: all
-	cp $(EXES) $(prefix)/bin/
+	install -m0555 $(EXES) $(prefix)/bin/
 
 clean:
 	rm -f $(EXES) *.o
