@@ -128,20 +128,26 @@ char* hex_encode(char* key, char* value) {
         "e0e1e2e3e4e5e6e7e8e9eaebecedeeef"
         "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
 
+    static const char kHexPrefix[] = "\\x";
+
     const size_t keylen = strlen(key);
     const size_t vallen = strlen(value);
-    const size_t retsize = keylen + 1 + vallen * 2 + 1;
+    const size_t retsize = keylen + 3 + vallen * 4 + 2;
     char* const ret = calloc(retsize, sizeof(*ret));
 
     char* cur = ret;
-    cur += snprintf(cur, retsize, "%s=", key);
+    cur += snprintf(cur, retsize, "%s=$'", key);
 
     for (unsigned i = 0; i < vallen; ++i) {
         const char c = value[i];
         const size_t tableind = c * 2;
+	memcpy(cur, kHexPrefix, 2);
+	cur += 2;
         memcpy(cur, &kTable[tableind], 2);
         cur += 2;
     }
+    *cur = '\'';
+    cur += 1;
     assert(cur == &ret[retsize - 1]);
 
     return ret;
