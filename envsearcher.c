@@ -109,6 +109,15 @@ char* normal(char* key, char* value) {
     return ret;
 }
 
+char* serialize(char* dst, const char* src, size_t len) {
+    memcpy(dst, src, len);
+    return dst + len;
+}
+
+char get_nybble(const char c) {
+    return (c & 0xf) + 'a';
+}
+
 char* hex_encode(char* key, char* value) {
     static const char kTable[] = 
         "000102030405060708090a0b0c0d0e0f"
@@ -128,7 +137,9 @@ char* hex_encode(char* key, char* value) {
         "e0e1e2e3e4e5e6e7e8e9eaebecedeeef"
         "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
 
+    static const char kAssignment[] = "=$'";
     static const char kHexPrefix[] = "\\x";
+    static const char kCloseQuote[] = "'";
 
     const size_t keylen = strlen(key);
     const size_t vallen = strlen(value);
@@ -136,15 +147,15 @@ char* hex_encode(char* key, char* value) {
     char* const ret = calloc(retsize, sizeof(*ret));
 
     char* cur = ret;
-    cur += snprintf(cur, retsize, "%s=$'", key);
+    cur = serialize(cur, key, keylen);
+    cur = serialize(cur, kAssignment, strlen(kAssignment));
 
     for (unsigned i = 0; i < vallen; ++i) {
         const char c = value[i];
-        const size_t tableind = c * 2;
-	memcpy(cur, kHexPrefix, 2);
-	cur += 2;
-        memcpy(cur, &kTable[tableind], 2);
-        cur += 2;
+        const size_t index = c * 2;
+
+        cur = serialize(cur, kHexPrefix, strlen(kHexPrefix));
+        cur = serialize(cur, &kTable[index], 2);
     }
     *cur = '\'';
     cur += 1;
