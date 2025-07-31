@@ -42,6 +42,7 @@ typedef struct {
 char* run_printf(char* key, char* value);
 char* normal(char* key, char* value);
 char* hex_encode(char* key, char* value);
+char* simple_escape(char* key, char* value);
 
 options parse_args(int argc, char** argv) {
     options ret = {
@@ -51,15 +52,16 @@ options parse_args(int argc, char** argv) {
     };
 
     while (true) {
-        const int opt = getopt(argc, argv, "zZqnx");
+        const int opt = getopt(argc, argv, "zZqnxs");
         if (opt == -1) break;
         switch (opt) {
-            case 'z': ret.delim = '\0';           break;
-            case 'Z': ret.delim = '\n';           break;
-            case 'q': ret.quote_fn = &run_printf; break;
-            case 'n': ret.quote_fn = &normal;     break;
-            case 'x': ret.quote_fn = &hex_encode; break;
-            case '?': exit(2);                    break;
+            case 'z': ret.delim = '\0';              break;
+            case 'Z': ret.delim = '\n';              break;
+            case 'q': ret.quote_fn = &run_printf;    break;
+            case 'n': ret.quote_fn = &normal;        break;
+            case 'x': ret.quote_fn = &hex_encode;    break;
+            case 's': ret.quote_fn = &simple_escape; break;
+            case '?': exit(2);                       break;
         }
     }
 
@@ -164,6 +166,53 @@ char* hex_encode(char* key, char* value) {
     return ret;
 }
 
+char* simple_escape(char* key, char* value) {
+    static const char kAssign[] = "='";
+    static const char kCloseQuote[] = "'";
+    static const char kNestedQuote[] = "'\\''";
+
+    const size_t key_len = strlen(key);
+
+    size_t retlen = 0;
+    retlen += key_len + strlen(kAssign) + strlen(kCloseQuote) + 1;
+
+    for (unsigned i = 0; value[i]; ++i) {
+        retlen += (value[i] != '\'') ? 1 : strlen(kNestedQuote);
+    }
+
+    char* const ret = calloc(retlen, sizeof(*ret));
+
+    char* cur = ret;
+    cur = serialize(cur, key, key_len);
+    cur = serialize(cur, kAssign, strlen(kAssign));
+
+    for (unsigned i = 0; value[i]; ++i) {
+        if (value[i] != '\'') {
+            cur = serialize(cur, &value[i], 1);
+        } else {
+            cur = serialize(cur, kNestedQuote, strlen(kNestedQuote));
+        }
+    }
+
+    cur = serialize(cur, kCloseQuote, strlen(kCloseQuote));
+
+    return ret;
+}
+
+static int compare(const void* a, const void* b) {
+    const char* const* str_a = a;
+    const char* const* str_b = b;
+
+    return strcmp(*str_a, *str_b);
+}
+
+static void sort_env(char** envp) {
+    char** cur = envp;
+    while (*cur) ++cur;
+
+    return qsort(envp, cur - envp, sizeof(*envp), &compare);
+}
+
 int main(int argc, char * argv[], char * envp[]) {
     const options options = parse_args(argc, &argv[0]);
 
@@ -172,6 +221,8 @@ int main(int argc, char * argv[], char * envp[]) {
 
     char* const needle = (nargs == 1) ? argv[options.arg_index] : "";
     const size_t needle_len = strlen(needle);
+
+    sort_env(envp);
 
     for (char** cur = envp; *cur; ++cur) {
         keyval* const kv = keyval_new(*cur);
