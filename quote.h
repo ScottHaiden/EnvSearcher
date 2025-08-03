@@ -13,21 +13,9 @@
 // You should have received a copy of the GNU General Public License along with
 // EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
-#include <stdlib.h>
-#include <string.h>
+#pragma once
 
-#include "keyval.h"
-
-keyval* keyval_new(const char* str) {
-    const size_t len = strlen(str);
-    const size_t size = sizeof(keyval) + len + 1;
-    keyval* const ret = calloc(size, 1);
-    if (ret == NULL) return ret;
-
-    memcpy(ret->key, str, len);
-    char* const eq = memchr(ret->key, '=', len);
-    *eq = '\0';
-    ret->value = &eq[1];
-
-    return ret;
-}
+char* run_printf(char* key, char* value);
+char* normal(char* key, char* value);
+char* hex_encode(char* key, char* value);
+char* simple_escape(char* key, char* value);

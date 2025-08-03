@@ -14,6 +14,7 @@
 # EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
 CFLAGS := -std=c11 -O3 -pipe -march=native -flto -fpic -pie
+CPPFLAGS := -D_GNU_SOURCE -D_XOPEN_SOURCE=700
 EXES := envsearcher
 
 prefix := /usr/local
@@ -22,7 +23,7 @@ prefix := /usr/local
 
 all: $(EXES)
 
-envsearcher: keyval.o
+envsearcher: keyval.o quote.o
 
 install: all
 	install -m0555 $(EXES) $(prefix)/bin/
