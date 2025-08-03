@@ -137,23 +137,27 @@ char* simple_escape(char* key, char* value) {
     static const char kNestedQuote[] = "'\\''";
 
     const size_t key_len = strlen(key);
+    const size_t val_len = strlen(value);
 
-    size_t retlen = 0;
-    retlen += key_len + strlen(kAssign) + strlen(kCloseQuote) + 1;
+    size_t overhead = strlen(kAssign) + strlen(kCloseQuote) + 1;
 
-    for (unsigned i = 0; value[i]; ++i) {
-        retlen += (value[i] != '\'') ? 1 : strlen(kNestedQuote);
+    char* cur = value;
+    while (cur = strchr(cur, '\'')) {
+        ++cur;
+        overhead += strlen(kNestedQuote) - 1;
     }
 
-    char* const ret = calloc(retlen, sizeof(*ret));
+    const size_t ret_len = key_len + val_len + overhead;
+    char* const ret = calloc(ret_len, sizeof(*ret));
 
-    char* cur = ret;
+    cur = ret;
     cur = serialize(cur, key, key_len);
     cur = serialize(cur, kAssign, strlen(kAssign));
 
-    for (unsigned i = 0; value[i]; ++i) {
-        if (value[i] != '\'') {
-            cur = serialize(cur, &value[i], 1);
+    for (unsigned i = 0; i < val_len; ++i) {
+        const char c = value[i];
+        if (c != '\'') {
+            cur = serialize(cur, &c, sizeof(c));
         } else {
             cur = serialize(cur, kNestedQuote, strlen(kNestedQuote));
         }

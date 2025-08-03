@@ -13,8 +13,10 @@
 # You should have received a copy of the GNU General Public License along with
 # EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
-CFLAGS := -std=c11 -O3 -pipe -march=native -flto -fpic -pie
+ARCH := native
+CFLAGS := -std=c11 -O3 -pipe -march=$(ARCH) -flto -fpic -pie
 CPPFLAGS := -D_GNU_SOURCE -D_XOPEN_SOURCE=700
+
 EXES := envsearcher
 
 prefix := /usr/local
