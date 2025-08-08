@@ -32,7 +32,7 @@ static options parse_args(int argc, char** argv) {
     options ret = {
         .arg_index = 1,
         .delim = '\n',
-        .quote_fn = &normal,
+        .quote_fn = &simple_escape,
     };
 
     while (true) {
