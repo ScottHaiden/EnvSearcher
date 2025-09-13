@@ -27,11 +27,6 @@
 
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-static char* serialize(char* dst, const char* src, size_t len) {
-    memcpy(dst, src, len);
-    return dst + len;
-}
-
 char* run_printf(char* key, char* value) {
     const int fd = memfd_create("output", 0);
     if (fd < 0) DIE("memfd_create");
@@ -79,9 +74,9 @@ char* normal(char* key, char* value) {
     char* ret = calloc(ret_len, sizeof(*ret));
 
     char* cur = ret;
-    cur = serialize(cur, key, key_len);
-    cur = serialize(cur, &kEquals[0], eq_len);
-    cur = serialize(cur, value, val_len);
+    cur = mempcpy(cur, key, key_len);
+    cur = mempcpy(cur, &kEquals[0], eq_len);
+    cur = mempcpy(cur, value, val_len);
 
     return ret;
 }
@@ -115,15 +110,15 @@ char* hex_encode(char* key, char* value) {
     char* const ret = calloc(retsize, sizeof(*ret));
 
     char* cur = ret;
-    cur = serialize(cur, key, keylen);
-    cur = serialize(cur, kAssignment, strlen(kAssignment));
+    cur = mempcpy(cur, key, keylen);
+    cur = mempcpy(cur, kAssignment, strlen(kAssignment));
 
     for (unsigned i = 0; i < vallen; ++i) {
         const char c = value[i];
         const size_t index = c * 2;
 
-        cur = serialize(cur, kHexPrefix, strlen(kHexPrefix));
-        cur = serialize(cur, &kTable[index], 2);
+        cur = mempcpy(cur, kHexPrefix, strlen(kHexPrefix));
+        cur = mempcpy(cur, &kTable[index], 2);
     }
     *cur = '\'';
     cur += 1;
@@ -152,19 +147,19 @@ char* simple_escape(char* key, char* value) {
     char* const ret = calloc(ret_len, sizeof(*ret));
 
     cur = ret;
-    cur = serialize(cur, key, key_len);
-    cur = serialize(cur, kAssign, strlen(kAssign));
+    cur = mempcpy(cur, key, key_len);
+    cur = mempcpy(cur, kAssign, strlen(kAssign));
 
     for (unsigned i = 0; i < val_len; ++i) {
         const char c = value[i];
         if (c != '\'') {
-            cur = serialize(cur, &c, sizeof(c));
+            cur = mempcpy(cur, &c, sizeof(c));
         } else {
-            cur = serialize(cur, kNestedQuote, strlen(kNestedQuote));
+            cur = mempcpy(cur, kNestedQuote, strlen(kNestedQuote));
         }
     }
 
-    cur = serialize(cur, kCloseQuote, strlen(kCloseQuote));
+    cur = mempcpy(cur, kCloseQuote, strlen(kCloseQuote));
 
     return ret;
 }
