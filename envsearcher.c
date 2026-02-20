@@ -51,9 +51,7 @@ static void options_set_quote_fn_simple_escape(options* o) { o->quote_fn = &simp
 
 static void show_help(const char* argv0, const flag* flags, int exit_code) {
     const char* begin = argv0;
-    for (const char* cur = argv0; *cur; ++cur) {
-        if (*cur == '/') begin = cur + 1;
-    }
+    if (const char* slash = strrchr(argv0, '/')) begin = slash + 1;
 
     FILE* const out = (exit_code) ? stderr : stdout;
 
