@@ -103,16 +103,25 @@ static options parse_args(int argc, char** argv) {
             .flag = 's', .action = &options_set_quote_fn_simple_escape,
             .help_text = "Use simple escape (default).",
         },
+        {
+            .flag = 'h', .action = NULL,
+            .help_text = "Show this help.",
+        },
         {},
     };
 
+    char opts[sizeof(flags) / sizeof(*flags) + 1];
+    for (unsigned i = 0; true; ++i) {
+        if (!(opts[i] = flags[i].flag)) break;
+    }
+
     while (true) {
-        const int opt = getopt(argc, argv, "zZqnxsh");
+        const int opt = getopt(argc, argv, opts);
         if (opt == -1) break;
-        if (opt == 'h') show_help(argv[0], &flags[0], 0);
 
         const flag* flag = find_flag(&flags[0], opt);
         if (flag == NULL) show_help(argv[0], &flags[0], 1);
+        if (!flag->action) show_help(argv[0], &flags[0], 0);
 
         flag->action(&ret);
     }
