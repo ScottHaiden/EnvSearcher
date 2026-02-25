@@ -50,7 +50,7 @@ static void options_set_quote_fn_hex_encode(options* o) { o->quote_fn = &hex_enc
 static void options_set_quote_fn_simple_escape(options* o) { o->quote_fn = &simple_escape; }
 static void options_set_quote_fn_name_only(options* o) { o->quote_fn = &name_only; }
 
-static void show_help(const char* argv0, const flag* flags, int exit_code) {
+[[noreturn]] static void show_help(const char* argv0, const flag* flags, int exit_code) {
     const char* begin = argv0;
     if (const char* slash = strrchr(argv0, '/')) begin = slash + 1;
 
