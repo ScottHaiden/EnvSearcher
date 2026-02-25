@@ -19,3 +19,4 @@ char* run_printf(char* key, char* value);
 char* normal(char* key, char* value);
 char* hex_encode(char* key, char* value);
 char* simple_escape(char* key, char* value);
+char* name_only(char* key, char* value);

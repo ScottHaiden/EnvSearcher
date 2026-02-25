@@ -148,3 +148,5 @@ char* simple_escape(char* key, char* value) {
 
     return ret;
 }
+
+char* name_only(char* key, char* unused_value) { return strdup(key); }

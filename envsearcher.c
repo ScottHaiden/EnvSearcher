@@ -48,6 +48,7 @@ static void options_set_quote_fn_run_printf(options* o) { o->quote_fn = &run_pri
 static void options_set_quote_fn_normal(options* o) { o->quote_fn = &normal; }
 static void options_set_quote_fn_hex_encode(options* o) { o->quote_fn = &hex_encode; }
 static void options_set_quote_fn_simple_escape(options* o) { o->quote_fn = &simple_escape; }
+static void options_set_quote_fn_name_only(options* o) { o->quote_fn = &name_only; }
 
 static void show_help(const char* argv0, const flag* flags, int exit_code) {
     const char* begin = argv0;
@@ -80,28 +81,32 @@ static options parse_args(int argc, char** argv) {
 
     const flag flags[] = {
         {
-            .flag = 'z', .action = &options_set_delim_nul,
-            .help_text = "Use nul char to delimit entries.",
-        },
-        {
-            .flag = 'Z', .action = &options_set_delim_newline,
-            .help_text = "Use newline to delimit entries.",
-        },
-        {
-            .flag = 'q', .action = &options_set_quote_fn_run_printf,
-            .help_text = "Use printf %q to quote entries. Requires supported printf program.",
+            .flag = 'N', .action = &options_set_quote_fn_name_only,
+            .help_text = "Print only the name of the variables.",
         },
         {
             .flag = 'n', .action = &options_set_quote_fn_normal,
             .help_text = "Print values as-is, no quoting.",
         },
         {
-            .flag = 'x', .action = &options_set_quote_fn_hex_encode,
-            .help_text = "Hex-escape values.",
+            .flag = 'q', .action = &options_set_quote_fn_run_printf,
+            .help_text = "Use printf %q to quote entries. Requires supported printf program.",
         },
         {
             .flag = 's', .action = &options_set_quote_fn_simple_escape,
             .help_text = "Use simple escape (default).",
+        },
+        {
+            .flag = 'x', .action = &options_set_quote_fn_hex_encode,
+            .help_text = "Hex-escape values.",
+        },
+        {
+            .flag = 'Z', .action = &options_set_delim_newline,
+            .help_text = "Use newline to delimit entries.",
+        },
+        {
+            .flag = 'z', .action = &options_set_delim_nul,
+            .help_text = "Use nul char to delimit entries.",
         },
         {
             .flag = 'h', .action = NULL,
