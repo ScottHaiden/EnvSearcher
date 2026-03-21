@@ -105,8 +105,8 @@ char* hex_encode(char* key, char* value) {
         cur = mempcpy(cur, &kTable[(val >> 0) & 0x0f], 1);
     }
 
-    *cur = '\'';
-    cur += 1;
+    cur = mempcpy(cur, kCloseQuote, strlen(kCloseQuote));
+
     assert(cur == &ret[retsize - 1]);
 
     return ret;
@@ -123,7 +123,7 @@ char* simple_escape(char* key, char* value) {
     size_t overhead = strlen(kAssign) + strlen(kCloseQuote) + 1;
 
     char* cur = value;
-    while (cur = strchr(cur, '\'')) {
+    while ((cur = strchr(cur, '\''))) {
         ++cur;
         overhead += strlen(kNestedQuote) - 1;
     }
