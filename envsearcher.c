@@ -160,11 +160,14 @@ int main(int argc, char * argv[], char * envp[]) {
 
     sort_env(envp);
 
+    bool any_matched = false;
+
     for (char** cur = envp; *cur; ++cur) {
         keyval* const kv = keyval_new(*cur);
         if (!kv) continue;
 
         if (strstr(kv->key, needle)) {
+            any_matched = true;
             char* const message = options.quote_fn(kv->key, kv->value);
             printf("%s%c", message, options.delim);
             free(message);
@@ -173,5 +176,5 @@ int main(int argc, char * argv[], char * envp[]) {
         free(kv);
     }
 
-    return EXIT_SUCCESS;
+    return any_matched ? EXIT_SUCCESS : EXIT_FAILURE;
 }
