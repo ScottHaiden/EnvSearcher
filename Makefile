@@ -14,7 +14,7 @@
 # EnvSearcher. If not, see <https://www.gnu.org/licenses/>.
 
 ARCH := native
-CFLAGS := -std=c23 -O3 -pipe -march=$(ARCH) -flto -fpic -pie
+CFLAGS := -std=c23 -O0 -pipe -march=$(ARCH) -flto -fpic -pie -g
 CPPFLAGS := -D_GNU_SOURCE -D_XOPEN_SOURCE=700
 
 EXES := envsearcher

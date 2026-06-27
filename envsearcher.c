@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <locale.h>
+#include <wchar.h>
 
 #include "keyval.h"
 #include "quote.h"
@@ -25,7 +27,7 @@
 typedef struct {
     int arg_index;
     char delim;
-    char* (*quote_fn)(char*, char*);
+    wchar_t* (*quote_fn)(wchar_t*, wchar_t*);
 } options;
 
 typedef struct {
@@ -149,14 +151,24 @@ static void sort_env(char** envp) {
     return qsort(envp, cur - envp, sizeof(*envp), &compare);
 }
 
+wchar_t* str_to_wcs(const char* str) {
+    const size_t len = mbstowcs(NULL, str, 0);
+    if (!len) return NULL;
+    wchar_t* const ret = calloc(len + 1, sizeof(*ret));
+    mbstowcs(ret, str, len + 1);
+    return ret;
+}
+
 int main(int argc, char * argv[], char * envp[]) {
+    setlocale(LC_ALL, "");
+
     const options options = parse_args(argc, &argv[0]);
 
     const int nargs = argc - options.arg_index;
     if (nargs > 1) exit(2);
 
-    char* const needle = (nargs == 1) ? argv[options.arg_index] : "";
-    const size_t needle_len = strlen(needle);
+    wchar_t* const needle = (nargs == 1) ? str_to_wcs(argv[options.arg_index]) : L"";
+    if (!needle) return 2;
 
     sort_env(envp);
 
@@ -166,10 +178,10 @@ int main(int argc, char * argv[], char * envp[]) {
         keyval* const kv = keyval_new(*cur);
         if (!kv) continue;
 
-        if (strstr(kv->key, needle)) {
+        if (wcsstr(kv->key, needle)) {
             any_matched = true;
-            char* const message = options.quote_fn(kv->key, kv->value);
-            printf("%s%c", message, options.delim);
+            wchar_t* const message = options.quote_fn(kv->key, kv->value);
+            printf("%Ls%c", message, options.delim);
             free(message);
         }
 

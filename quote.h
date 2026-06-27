@@ -15,8 +15,10 @@
 
 #pragma once
 
-char* run_printf(char* key, char* value);
-char* normal(char* key, char* value);
-char* hex_encode(char* key, char* value);
-char* simple_escape(char* key, char* value);
-char* name_only(char* key, char* value);
+#include <wchar.h>
+
+wchar_t* run_printf(wchar_t* key, wchar_t* value);
+wchar_t* normal(wchar_t* key, wchar_t* value);
+wchar_t* hex_encode(wchar_t* key, wchar_t* value);
+wchar_t* simple_escape(wchar_t* key, wchar_t* value);
+wchar_t* name_only(wchar_t* key, wchar_t* value);
