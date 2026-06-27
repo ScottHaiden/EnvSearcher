@@ -26,6 +26,7 @@
 #include "quote.h"
 
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define ZTALEN(a) (sizeof(a) / sizeof(*a) - 1)
 
 static inline wchar_t* serialize(wchar_t* cur, const wchar_t* new, size_t nchar) {
     return mempcpy(cur, new, (nchar ? nchar : wcslen(new)) * sizeof(*cur));
@@ -88,7 +89,7 @@ wchar_t* run_printf(wchar_t* key, wchar_t* value) {
 
 wchar_t* normal(wchar_t* key, wchar_t* value) {
     static const wchar_t kEquals[] = L"=";
-    const size_t eq_len = wcslen(kEquals);
+    const size_t eq_len = ZTALEN(kEquals);
 
     const size_t key_len = wcslen(key);
     const size_t val_len = wcslen(value);
@@ -98,7 +99,7 @@ wchar_t* normal(wchar_t* key, wchar_t* value) {
 
     wchar_t* cur = ret;
     cur = serialize(cur, key, 0);
-    cur = serialize(cur, kEquals, 0);
+    cur = serialize(cur, kEquals, ZTALEN(kEquals));
     cur = serialize(cur, value, 0);
 
     return ret;
@@ -111,7 +112,7 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     static const wchar_t kHexPrefix[] = L"\\x";
     static const wchar_t kCloseQuote[] = L"'";
 
-    const size_t overhead = wcslen(key) + wcslen(kAssignment) + wcslen(kCloseQuote);
+    const size_t overhead = wcslen(key) + ZTALEN(kAssignment) + ZTALEN(kCloseQuote);
 
     const size_t valbytes = wcstombs(NULL, value, 0);
     if (!valbytes) return NULL;
@@ -123,16 +124,16 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
 
     wchar_t* cur = ret;
     cur = serialize(cur, key, 0);
-    cur = serialize(cur, kAssignment, 0);
+    cur = serialize(cur, kAssignment, ZTALEN(kAssignment));
 
     for (unsigned i = 0; i < valbytes; ++i) {
         const unsigned byte = val_mb[i];
-        cur = serialize(cur, kHexPrefix, 0);
+        cur = serialize(cur, kHexPrefix, ZTALEN(kHexPrefix));
         cur = serialize(cur, &kTable[(byte >> 4) & 0x0f], 1);
         cur = serialize(cur, &kTable[(byte >> 0) & 0x0f], 1);
     }
 
-    cur = serialize(cur, kCloseQuote, 0);
+    cur = serialize(cur, kCloseQuote, ZTALEN(kCloseQuote));
 
     assert(cur == &ret[retsize - 1]);
 
@@ -147,12 +148,12 @@ wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
     const size_t key_len = wcslen(key);
     const size_t val_len = wcslen(value);
 
-    size_t overhead = wcslen(kAssign) + wcslen(kCloseQuote) + 1;
+    size_t overhead = ZTALEN(kAssign) + ZTALEN(kCloseQuote) + 1;
 
     wchar_t* cur = value;
     while ((cur = wcschr(cur, L'\''))) {
         ++cur;
-        overhead += wcslen(kNestedQuote) - 1;
+        overhead += ZTALEN(kNestedQuote) - 1;
     }
 
     const size_t ret_len = key_len + val_len + overhead;
@@ -160,18 +161,18 @@ wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
 
     cur = ret;
     cur = serialize(cur, key, 0);
-    cur = serialize(cur, kAssign, 0);
+    cur = serialize(cur, kAssign, ZTALEN(kAssign));
 
     for (unsigned i = 0; i < val_len; ++i) {
         const wchar_t c = value[i];
         if (c != L'\'') {
             cur = serialize(cur, &c, 1);
         } else {
-            cur = serialize(cur, kNestedQuote, 0);
+            cur = serialize(cur, kNestedQuote, ZTALEN(kNestedQuote));
         }
     }
 
-    cur = serialize(cur, kCloseQuote, 0);
+    cur = serialize(cur, kCloseQuote, ZTALEN(kCloseQuote));
 
     return ret;
 }

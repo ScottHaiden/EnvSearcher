@@ -24,6 +24,8 @@
 #include "keyval.h"
 #include "quote.h"
 
+#define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
 typedef struct {
     int arg_index;
     char delim;
@@ -151,11 +153,15 @@ static void sort_env(char** envp) {
     return qsort(envp, cur - envp, sizeof(*envp), &compare);
 }
 
-wchar_t* str_to_wcs(const char* str) {
+static wchar_t* get_needle(const char* str) {
+    if (!str) return NULL;
+
     const size_t len = mbstowcs(NULL, str, 0);
-    if (!len) return NULL;
+    if (!len) DIE("mbstowcs");
+
     wchar_t* const ret = calloc(len + 1, sizeof(*ret));
     mbstowcs(ret, str, len + 1);
+
     return ret;
 }
 
@@ -167,8 +173,7 @@ int main(int argc, char * argv[], char * envp[]) {
     const int nargs = argc - options.arg_index;
     if (nargs > 1) exit(2);
 
-    wchar_t* const needle = (nargs == 1) ? str_to_wcs(argv[options.arg_index]) : L"";
-    if (!needle) return 2;
+    wchar_t* const needle = get_needle(argv[options.arg_index]);
 
     sort_env(envp);
 
@@ -178,7 +183,7 @@ int main(int argc, char * argv[], char * envp[]) {
         keyval* const kv = keyval_new(*cur);
         if (!kv) continue;
 
-        if (wcsstr(kv->key, needle)) {
+        if (!needle || wcsstr(kv->key, needle)) {
             any_matched = true;
             wchar_t* const message = options.quote_fn(kv->key, kv->value);
             printf("%ls%c", message, options.delim);
@@ -187,6 +192,8 @@ int main(int argc, char * argv[], char * envp[]) {
 
         free(kv);
     }
+
+    free(needle);
 
     return any_matched ? EXIT_SUCCESS : EXIT_FAILURE;
 }
