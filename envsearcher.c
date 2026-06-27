@@ -181,7 +181,7 @@ int main(int argc, char * argv[], char * envp[]) {
         if (wcsstr(kv->key, needle)) {
             any_matched = true;
             wchar_t* const message = options.quote_fn(kv->key, kv->value);
-            printf("%Ls%c", message, options.delim);
+            printf("%ls%c", message, options.delim);
             free(message);
         }
 
