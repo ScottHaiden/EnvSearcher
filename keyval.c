@@ -19,21 +19,6 @@
 
 #include "keyval.h"
 
-#if 0
-keyval* keyval_new(const char* str) {
-    const size_t len = strlen(str);
-    const size_t size = sizeof(keyval) + len + 1;
-    keyval* const ret = calloc(size, 1);
-    if (ret == NULL) return ret;
-
-    memcpy(ret->key, str, len);
-    char* const eq = memchr(ret->key, '=', len);
-    *eq = '\0';
-    ret->value = &eq[1];
-
-    return ret;
-}
-#else
 keyval* keyval_new(const char* str) {
     const size_t len = mbstowcs(NULL, str, 0);
     if (len == ((size_t)-1)) return NULL;
@@ -52,4 +37,3 @@ keyval* keyval_new(const char* str) {
 
     return ret;
 }
-#endif

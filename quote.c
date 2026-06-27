@@ -27,8 +27,8 @@
 
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-wchar_t* serialize(wchar_t* cur, const wchar_t* new, size_t nchar) {
-    return mempcpy(cur, new, nchar * sizeof(*cur));
+static inline wchar_t* serialize(wchar_t* cur, const wchar_t* new, size_t nchar) {
+    return mempcpy(cur, new, (nchar ? nchar : wcslen(new)) * sizeof(*cur));
 }
 
 wchar_t* run_printf(wchar_t* key, wchar_t* value) {
@@ -97,9 +97,9 @@ wchar_t* normal(wchar_t* key, wchar_t* value) {
     wchar_t* ret = calloc(ret_len, sizeof(*ret));
 
     wchar_t* cur = ret;
-    cur = serialize(cur, key, key_len);
-    cur = serialize(cur, &kEquals[0], eq_len);
-    cur = serialize(cur, value, val_len);
+    cur = serialize(cur, key, 0);
+    cur = serialize(cur, kEquals, 0);
+    cur = serialize(cur, value, 0);
 
     return ret;
 }
@@ -122,17 +122,17 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     wchar_t* const ret = calloc(retsize, sizeof(*ret));
 
     wchar_t* cur = ret;
-    cur = serialize(cur, key, wcslen(key));
-    cur = serialize(cur, kAssignment, wcslen(kAssignment));
+    cur = serialize(cur, key, 0);
+    cur = serialize(cur, kAssignment, 0);
 
     for (unsigned i = 0; i < valbytes; ++i) {
         const unsigned byte = val_mb[i];
-        cur = serialize(cur, kHexPrefix, wcslen(kHexPrefix));
+        cur = serialize(cur, kHexPrefix, 0);
         cur = serialize(cur, &kTable[(byte >> 4) & 0x0f], 1);
         cur = serialize(cur, &kTable[(byte >> 0) & 0x0f], 1);
     }
 
-    cur = serialize(cur, kCloseQuote, wcslen(kCloseQuote));
+    cur = serialize(cur, kCloseQuote, 0);
 
     assert(cur == &ret[retsize - 1]);
 
@@ -159,19 +159,19 @@ wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
     wchar_t* const ret = calloc(ret_len, sizeof(*ret));
 
     cur = ret;
-    cur = serialize(cur, key, key_len);
-    cur = serialize(cur, kAssign, wcslen(kAssign));
+    cur = serialize(cur, key, 0);
+    cur = serialize(cur, kAssign, 0);
 
     for (unsigned i = 0; i < val_len; ++i) {
         const wchar_t c = value[i];
         if (c != L'\'') {
             cur = serialize(cur, &c, 1);
         } else {
-            cur = serialize(cur, kNestedQuote, wcslen(kNestedQuote));
+            cur = serialize(cur, kNestedQuote, 0);
         }
     }
 
-    cur = serialize(cur, kCloseQuote, wcslen(kCloseQuote));
+    cur = serialize(cur, kCloseQuote, 0);
 
     return ret;
 }
