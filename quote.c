@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wctype.h>
 
 #include "quote.h"
 
@@ -30,6 +31,19 @@
 
 static inline wchar_t* serialize(wchar_t* cur, const wchar_t* new, size_t nchar) {
     return mempcpy(cur, new, (nchar ? nchar : wcslen(new)) * sizeof(*cur));
+}
+
+static inline wchar_t* append_hex(wchar_t* cur, char new) {
+    static const wchar_t kTable[] = L"0123456789abcdef";
+    static const wchar_t kPrefix[] = L"\\x";
+
+    const unsigned byte = new;
+
+    cur = serialize(cur, kPrefix, ZTALEN(kPrefix));
+    cur = serialize(cur, &kTable[(byte >> 4) & 0x0f], 1);
+    cur = serialize(cur, &kTable[(byte >> 0) & 0x0f], 1);
+
+    return cur;
 }
 
 wchar_t* run_printf(wchar_t* key, wchar_t* value) {
@@ -109,7 +123,6 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     static const wchar_t kTable[] = L"0123456789abcdef";
 
     static const wchar_t kAssignment[] = L"=$'";
-    static const wchar_t kHexPrefix[] = L"\\x";
     static const wchar_t kCloseQuote[] = L"'";
 
     const size_t overhead = wcslen(key) + ZTALEN(kAssignment) + ZTALEN(kCloseQuote);
@@ -127,10 +140,7 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     cur = serialize(cur, kAssignment, ZTALEN(kAssignment));
 
     for (unsigned i = 0; i < valbytes; ++i) {
-        const unsigned byte = val_mb[i];
-        cur = serialize(cur, kHexPrefix, ZTALEN(kHexPrefix));
-        cur = serialize(cur, &kTable[(byte >> 4) & 0x0f], 1);
-        cur = serialize(cur, &kTable[(byte >> 0) & 0x0f], 1);
+        cur = append_hex(cur, val_mb[i]);
     }
 
     cur = serialize(cur, kCloseQuote, ZTALEN(kCloseQuote));
@@ -142,37 +152,67 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
 
 wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
     static const wchar_t kAssign[] = L"='";
-    static const wchar_t kCloseQuote[] = L"'";
-    static const wchar_t kNestedQuote[] = L"'\\''";
+    static const wchar_t kSingleQuote[] = L"'";
+    static const wchar_t kEscapedQuote[] = L"\\'";
+    static const wchar_t kHexSeqPrefix[] = L"$'";
 
     const size_t key_len = wcslen(key);
-    const size_t val_len = wcslen(value);
 
-    size_t overhead = ZTALEN(kAssign) + ZTALEN(kCloseQuote) + 1;
+    size_t overhead = ZTALEN(kAssign) + ZTALEN(kSingleQuote) + 1;
 
-    wchar_t* cur = value;
-    while ((cur = wcschr(cur, L'\''))) {
-        ++cur;
-        overhead += ZTALEN(kNestedQuote) - 1;
-    }
-
-    const size_t ret_len = key_len + val_len + overhead;
-    wchar_t* const ret = calloc(ret_len, sizeof(*ret));
-
-    cur = ret;
-    cur = serialize(cur, key, 0);
-    cur = serialize(cur, kAssign, ZTALEN(kAssign));
-
-    for (unsigned i = 0; i < val_len; ++i) {
-        const wchar_t c = value[i];
-        if (c != L'\'') {
-            cur = serialize(cur, &c, 1);
+    size_t enc_len = 0;
+    for (const wchar_t* cur = value; *cur; ++cur) {
+        if (*cur == L'\'') {
+            enc_len +=
+                ZTALEN(kSingleQuote) +
+                ZTALEN(kEscapedQuote) +
+                ZTALEN(kSingleQuote);
+        } else if (!iswprint(*cur)) {
+            char buf[MB_CUR_MAX];
+            size_t bytes = wctomb(buf, *cur);
+            if (!bytes) DIE("wctomb");
+            enc_len +=
+                ZTALEN(kSingleQuote) +  // close previous sequence
+                ZTALEN(kHexSeqPrefix) + // open hex sequence
+                4 * bytes +             // \x00 for each byte
+                ZTALEN(kSingleQuote) +  // close hex sequence
+                ZTALEN(kSingleQuote);   // open normal sequence
         } else {
-            cur = serialize(cur, kNestedQuote, ZTALEN(kNestedQuote));
+            ++enc_len;
         }
     }
 
-    cur = serialize(cur, kCloseQuote, ZTALEN(kCloseQuote));
+    const size_t ret_len = key_len + enc_len + overhead;
+    wchar_t* const ret = calloc(ret_len, sizeof(*ret));
+
+    wchar_t* cur = ret;
+    cur = serialize(cur, key, 0);
+    cur = serialize(cur, kAssign, ZTALEN(kAssign));
+
+    for (const wchar_t* c = &value[0]; *c; ++c) {
+        if (*c == L'\'') {
+            cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+            cur = serialize(cur, kEscapedQuote, ZTALEN(kEscapedQuote));
+            cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+        } else if (!iswprint(*c)) {
+            char buf[MB_CUR_MAX];
+            const size_t bytes = wctomb(buf, *c);
+            if (!bytes) DIE("wctomb");
+
+            cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+            cur = serialize(cur, kHexSeqPrefix, ZTALEN(kHexSeqPrefix));
+            for (unsigned i = 0; i < bytes; ++i) {
+                cur = append_hex(cur, buf[i]);
+            }
+            cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+            cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+        } else {
+            cur = serialize(cur, c, 1);
+        }
+    }
+
+    cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
+    assert(cur == &ret[ret_len - 1]);
 
     return ret;
 }
