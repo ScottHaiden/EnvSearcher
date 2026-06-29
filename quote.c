@@ -116,6 +116,7 @@ wchar_t* normal(wchar_t* key, wchar_t* value) {
     cur = serialize(cur, kEquals, ZTALEN(kEquals));
     cur = serialize(cur, value, 0);
 
+    assert(cur == &ret[ret_len - 1]);
     return ret;
 }
 
@@ -146,7 +147,6 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     cur = serialize(cur, kCloseQuote, ZTALEN(kCloseQuote));
 
     assert(cur == &ret[retsize - 1]);
-
     return ret;
 }
 
@@ -212,8 +212,8 @@ wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
     }
 
     cur = serialize(cur, kSingleQuote, ZTALEN(kSingleQuote));
-    assert(cur == &ret[ret_len - 1]);
 
+    assert(cur == &ret[ret_len - 1]);
     return ret;
 }
 
