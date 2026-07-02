@@ -143,7 +143,7 @@ static int compare(const void* a, const void* b) {
     const char* const* str_a = a;
     const char* const* str_b = b;
 
-    return strcmp(*str_a, *str_b);
+    return strcasecmp(*str_a, *str_b);
 }
 
 static void sort_env(char** envp) {
