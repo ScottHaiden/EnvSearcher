@@ -32,10 +32,20 @@ typedef struct {
     wchar_t* (*quote_fn)(wchar_t*, wchar_t*);
 } options;
 
+typedef enum {
+    JOB_UNSET = 0,
+    JOB_QUOTE = 1,
+    JOB_DELIM = 2,
+} job_e;
+
 typedef struct {
     char flag;
     const char* help_text;
-    void (*action)(options*);
+    job_e type;
+    union {
+        wchar_t* (*quote_fn)(wchar_t*, wchar_t*);
+        char delim;
+    } value;
 } flag;
 
 static const flag* find_flag(const flag* flags, char key) {
@@ -45,14 +55,6 @@ static const flag* find_flag(const flag* flags, char key) {
 
     return NULL;
 }
-
-static void options_set_delim_nul(options* o) { o->delim = '\0'; }
-static void options_set_delim_newline(options* o) { o->delim = '\n'; }
-static void options_set_quote_fn_run_printf(options* o) { o->quote_fn = &run_printf; }
-static void options_set_quote_fn_normal(options* o) { o->quote_fn = &normal; }
-static void options_set_quote_fn_hex_encode(options* o) { o->quote_fn = &hex_encode; }
-static void options_set_quote_fn_simple_escape(options* o) { o->quote_fn = &simple_escape; }
-static void options_set_quote_fn_name_only(options* o) { o->quote_fn = &name_only; }
 
 [[noreturn]] static void show_help(const char* argv0, const flag* flags, int exit_code) {
     const char* begin = argv0;
@@ -85,35 +87,35 @@ static options parse_args(int argc, char** argv) {
 
     const flag flags[] = {
         {
-            .flag = 'N', .action = &options_set_quote_fn_name_only,
+            .flag = 'N', .type = JOB_QUOTE, .value.quote_fn = &name_only,
             .help_text = "Print only the name of the variables.",
         },
         {
-            .flag = 'n', .action = &options_set_quote_fn_normal,
+            .flag = 'n', .type = JOB_QUOTE, .value.quote_fn = &normal,
             .help_text = "Print values as-is, no quoting.",
         },
         {
-            .flag = 'q', .action = &options_set_quote_fn_run_printf,
+            .flag = 'q', .type = JOB_QUOTE, .value.quote_fn = &run_printf,
             .help_text = "Use printf %q to quote entries. Requires supported printf program.",
         },
         {
-            .flag = 's', .action = &options_set_quote_fn_simple_escape,
+            .flag = 's', .type = JOB_QUOTE, .value.quote_fn = &simple_escape,
             .help_text = "Use simple escape (default).",
         },
         {
-            .flag = 'x', .action = &options_set_quote_fn_hex_encode,
+            .flag = 'x', .type = JOB_QUOTE, .value.quote_fn = &hex_encode,
             .help_text = "Hex-escape values.",
         },
         {
-            .flag = 'Z', .action = &options_set_delim_newline,
+            .flag = 'Z', .type = JOB_DELIM, .value.delim = '\n',
             .help_text = "Use newline to delimit entries.",
         },
         {
-            .flag = 'z', .action = &options_set_delim_nul,
+            .flag = 'z', .type = JOB_DELIM, .value.delim = '\0',
             .help_text = "Use nul char to delimit entries.",
         },
         {
-            .flag = 'h', .action = NULL,
+            .flag = 'h', .type = JOB_UNSET,
             .help_text = "Show this help.",
         },
         {},
@@ -130,9 +132,13 @@ static options parse_args(int argc, char** argv) {
 
         const flag* flag = find_flag(&flags[0], opt);
         if (flag == NULL) show_help(argv[0], &flags[0], 1);
-        if (!flag->action) show_help(argv[0], &flags[0], 0);
 
-        flag->action(&ret);
+        switch (flag->type) {
+            case JOB_UNSET: show_help(argv[0], &flags[0], 0);    break;
+            case JOB_QUOTE: ret.quote_fn = flag->value.quote_fn; break;
+            case JOB_DELIM: ret.delim = flag->value.delim;       break;
+            default: show_help(argv[0], &flags[0], 1);           break;
+        }
     }
 
     ret.arg_index = optind;
