@@ -82,40 +82,48 @@ static options parse_args(int argc, char** argv) {
     options ret = {
         .arg_index = 1,
         .delim = '\n',
-        .quote_fn = &simple_escape,
+        .quote_fn = &quote_simple_escape,
     };
 
     const flag flags[] = {
         {
-            .flag = 'N', .type = JOB_QUOTE, .value.quote_fn = &name_only,
+            .flag = 'N',
+            .type = JOB_QUOTE, .value.quote_fn = &quote_name_only,
             .help_text = "Print only the name of the variables.",
         },
         {
-            .flag = 'n', .type = JOB_QUOTE, .value.quote_fn = &normal,
+            .flag = 'n',
+            .type = JOB_QUOTE, .value.quote_fn = &quote_normal,
             .help_text = "Print values as-is, no quoting.",
         },
         {
-            .flag = 'q', .type = JOB_QUOTE, .value.quote_fn = &run_printf,
+            .flag = 'q',
+            .type = JOB_QUOTE, .value.quote_fn = &quote_run_printf,
             .help_text = "Use printf %q to quote entries. Requires supported printf program.",
         },
         {
-            .flag = 's', .type = JOB_QUOTE, .value.quote_fn = &simple_escape,
+            .flag = 's',
+            .type = JOB_QUOTE, .value.quote_fn = &quote_simple_escape,
             .help_text = "Use simple escape (default).",
         },
         {
-            .flag = 'x', .type = JOB_QUOTE, .value.quote_fn = &hex_encode,
+            .flag = 'x',
+            .type = JOB_QUOTE, .value.quote_fn = &quote_hex_encode,
             .help_text = "Hex-escape values.",
         },
         {
-            .flag = 'Z', .type = JOB_DELIM, .value.delim = '\n',
+            .flag = 'Z',
+            .type = JOB_DELIM, .value.delim = '\n',
             .help_text = "Use newline to delimit entries.",
         },
         {
-            .flag = 'z', .type = JOB_DELIM, .value.delim = '\0',
+            .flag = 'z',
+            .type = JOB_DELIM, .value.delim = '\0',
             .help_text = "Use nul char to delimit entries.",
         },
         {
-            .flag = 'h', .type = JOB_UNSET,
+            .flag = 'h',
+            .type = JOB_UNSET,
             .help_text = "Show this help.",
         },
         {},

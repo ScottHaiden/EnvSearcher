@@ -46,7 +46,7 @@ static inline wchar_t* append_hex(wchar_t* cur, char new) {
     return cur;
 }
 
-wchar_t* run_printf(wchar_t* key, wchar_t* value) {
+wchar_t* quote_run_printf(wchar_t* key, wchar_t* value) {
     const int fd = memfd_create("output", 0);
     if (fd < 0) DIE("memfd_create");
 
@@ -101,7 +101,7 @@ wchar_t* run_printf(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* normal(wchar_t* key, wchar_t* value) {
+wchar_t* quote_normal(wchar_t* key, wchar_t* value) {
     static const wchar_t kEquals[] = L"=";
     const size_t eq_len = ZTALEN(kEquals);
 
@@ -120,7 +120,7 @@ wchar_t* normal(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
+wchar_t* quote_hex_encode(wchar_t* key, wchar_t* value) {
     static const wchar_t kTable[] = L"0123456789abcdef";
 
     static const wchar_t kAssignment[] = L"=$'";
@@ -150,7 +150,7 @@ wchar_t* hex_encode(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
+wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value) {
     static const wchar_t kAssign[] = L"='";
     static const wchar_t kSingleQuote[] = L"'";
     static const wchar_t kEscapedQuote[] = L"\\'";
@@ -217,4 +217,4 @@ wchar_t* simple_escape(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* name_only(wchar_t* key, wchar_t* unused_value) { return wcsdup(key); }
+wchar_t* quote_name_only(wchar_t* key, wchar_t* unused_value) { return wcsdup(key); }

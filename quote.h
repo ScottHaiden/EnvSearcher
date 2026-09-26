@@ -17,8 +17,8 @@
 
 #include <wchar.h>
 
-wchar_t* run_printf(wchar_t* key, wchar_t* value);
-wchar_t* normal(wchar_t* key, wchar_t* value);
-wchar_t* hex_encode(wchar_t* key, wchar_t* value);
-wchar_t* simple_escape(wchar_t* key, wchar_t* value);
-wchar_t* name_only(wchar_t* key, wchar_t* value);
+wchar_t* quote_run_printf(wchar_t* key, wchar_t* value);
+wchar_t* quote_normal(wchar_t* key, wchar_t* value);
+wchar_t* quote_hex_encode(wchar_t* key, wchar_t* value);
+wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value);
+wchar_t* quote_name_only(wchar_t* key, wchar_t* value);
