@@ -22,20 +22,20 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <wctype.h>
+#include <ctype.h>
 
 #include "quote.h"
 
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define ZTALEN(a) (sizeof(a) / sizeof(*a) - 1)
 
-static inline void advance(wchar_t** cur, const wchar_t* new, size_t nchar) {
-    *cur = mempcpy(*cur, new, (nchar ? nchar : wcslen(new)) * sizeof(**cur));
+static inline void advance(char** cur, const char* new, size_t nchar) {
+    *cur = mempcpy(*cur, new, nchar ? nchar : strlen(new));
 }
 
-static inline wchar_t* append_hex(wchar_t* cur, char new) {
-    static const wchar_t kTable[] = L"0123456789abcdef";
-    static const wchar_t kPrefix[] = L"\\x";
+static inline char* append_hex(char* cur, char new) {
+    static const char kTable[] = "0123456789abcdef";
+    static const char kPrefix[] = "\\x";
 
     const unsigned byte = new;
 
@@ -46,23 +46,12 @@ static inline wchar_t* append_hex(wchar_t* cur, char new) {
     return cur;
 }
 
-wchar_t* quote_run_printf(wchar_t* key, wchar_t* value) {
+char* quote_run_printf(char* key, char* value) {
     const int fd = memfd_create("output", 0);
     if (fd < 0) DIE("memfd_create");
 
-    const size_t mb_keylen = wcstombs(NULL, key, 0);
-    const size_t mb_vallen = wcstombs(NULL, value, 0);
-
-    if (!mb_keylen || !mb_vallen) return NULL;
-
-    char mb_key[mb_keylen + 1];
-    char mb_val[mb_vallen + 1];
-
-    wcstombs(mb_key, key, mb_keylen + 1);
-    wcstombs(mb_val, value, mb_vallen + 1);
-
     pid_t child = 0;
-    char* argv[] = {"printf", "%s=%q", mb_key, mb_val, NULL};
+    char* argv[] = {"printf", "%s=%q", key, value, NULL};
     posix_spawn_file_actions_t file_actions;
     posix_spawn_file_actions_init(&file_actions);
     posix_spawn_file_actions_addclose(&file_actions, STDIN_FILENO);
@@ -90,28 +79,20 @@ wchar_t* quote_run_printf(wchar_t* key, wchar_t* value) {
 
     if (close(fd)) DIE("close");
 
-    const size_t len = mbstowcs(NULL, result, 0);
-    if (!len) DIE("mbstowcs printf result");
-
-    wchar_t* const ret = calloc(len + 1, sizeof(*ret));
-    mbstowcs(ret, result, len + 1);
-
-    free(result);
-
-    return ret;
+    return result;
 }
 
-wchar_t* quote_normal(wchar_t* key, wchar_t* value) {
-    static const wchar_t kEquals[] = L"=";
+char* quote_normal(char* key, char* value) {
+    static const char kEquals[] = "=";
     const size_t eq_len = ZTALEN(kEquals);
 
-    const size_t key_len = wcslen(key);
-    const size_t val_len = wcslen(value);
+    const size_t key_len = strlen(key);
+    const size_t val_len = strlen(value);
 
     const size_t ret_len = key_len + eq_len + val_len + 1;
-    wchar_t* ret = calloc(ret_len, sizeof(*ret));
+    char* ret = calloc(ret_len, sizeof(*ret));
 
-    wchar_t* cur = ret;
+    char* cur = ret;
     advance(&cur, key, 0);
     advance(&cur, kEquals, ZTALEN(kEquals));
     advance(&cur, value, 0);
@@ -120,28 +101,26 @@ wchar_t* quote_normal(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* quote_hex_encode(wchar_t* key, wchar_t* value) {
-    static const wchar_t kTable[] = L"0123456789abcdef";
+char* quote_hex_encode(char* key, char* value) {
+    static const char kTable[] = "0123456789abcdef";
 
-    static const wchar_t kAssignment[] = L"=$'";
-    static const wchar_t kCloseQuote[] = L"'";
+    static const char kAssignment[] = "=$'";
+    static const char kCloseQuote[] = "'";
 
-    const size_t overhead = wcslen(key) + ZTALEN(kAssignment) + ZTALEN(kCloseQuote);
+    const size_t key_len = strlen(key);
+    const size_t val_len = strlen(value);
 
-    const size_t valbytes = wcstombs(NULL, value, 0);
-    if (!valbytes) return NULL;
-    char val_mb[valbytes + 1];
-    wcstombs(val_mb, value, sizeof(val_mb));
+    const size_t overhead = key_len + ZTALEN(kAssignment) + ZTALEN(kCloseQuote);
 
-    const size_t retsize = overhead + valbytes * 4 + 1;
-    wchar_t* const ret = calloc(retsize, sizeof(*ret));
+    const size_t retsize = overhead + val_len * 4 + 1;
+    char* const ret = calloc(retsize, sizeof(*ret));
 
-    wchar_t* cur = ret;
+    char* cur = ret;
     advance(&cur, key, 0);
     advance(&cur, kAssignment, ZTALEN(kAssignment));
 
-    for (unsigned i = 0; i < valbytes; ++i) {
-        cur = append_hex(cur, val_mb[i]);
+    for (unsigned i = 0; i < val_len; ++i) {
+        cur = append_hex(cur, value[i]);
     }
 
     advance(&cur, kCloseQuote, ZTALEN(kCloseQuote));
@@ -150,31 +129,28 @@ wchar_t* quote_hex_encode(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value) {
-    static const wchar_t kAssign[] = L"='";
-    static const wchar_t kSingleQuote[] = L"'";
-    static const wchar_t kEscapedQuote[] = L"\\'";
-    static const wchar_t kHexSeqPrefix[] = L"$'";
+char* quote_simple_escape(char* key, char* value) {
+    static const char kAssign[] = "='";
+    static const char kSingleQuote[] = "'";
+    static const char kEscapedQuote[] = "\\'";
+    static const char kHexSeqPrefix[] = "$'";
 
-    const size_t key_len = wcslen(key);
+    const size_t key_len = strlen(key);
 
     size_t overhead = ZTALEN(kAssign) + ZTALEN(kSingleQuote) + 1;
 
     size_t enc_len = 0;
-    for (const wchar_t* cur = value; *cur; ++cur) {
-        if (*cur == L'\'') {
+    for (const char* cur = value; *cur; ++cur) {
+        if (*cur == '\'') {
             enc_len +=
                 ZTALEN(kSingleQuote) +
                 ZTALEN(kEscapedQuote) +
                 ZTALEN(kSingleQuote);
-        } else if (!iswprint(*cur)) {
-            char buf[MB_CUR_MAX];
-            size_t bytes = wctomb(buf, *cur);
-            if (!bytes) DIE("wctomb");
+        } else if (!isprint(*cur)) {
             enc_len +=
                 ZTALEN(kSingleQuote) +  // close previous sequence
                 ZTALEN(kHexSeqPrefix) + // open hex sequence
-                4 * bytes +             // \x00 for each byte
+                4 +                     // \x00 for  the byte
                 ZTALEN(kSingleQuote) +  // close hex sequence
                 ZTALEN(kSingleQuote);   // open normal sequence
         } else {
@@ -183,27 +159,21 @@ wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value) {
     }
 
     const size_t ret_len = key_len + enc_len + overhead;
-    wchar_t* const ret = calloc(ret_len, sizeof(*ret));
+    char* const ret = calloc(ret_len, sizeof(*ret));
 
-    wchar_t* cur = ret;
+    char* cur = ret;
     advance(&cur, key, 0);
     advance(&cur, kAssign, ZTALEN(kAssign));
 
-    for (const wchar_t* c = &value[0]; *c; ++c) {
-        if (*c == L'\'') {
+    for (const char* c = &value[0]; *c; ++c) {
+        if (*c == '\'') {
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kEscapedQuote, ZTALEN(kEscapedQuote));
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-        } else if (!iswprint(*c)) {
-            char buf[MB_CUR_MAX];
-            const size_t bytes = wctomb(buf, *c);
-            if (!bytes) DIE("wctomb");
-
+        } else if (!isprint(*c)) {
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kHexSeqPrefix, ZTALEN(kHexSeqPrefix));
-            for (unsigned i = 0; i < bytes; ++i) {
-                cur = append_hex(cur, buf[i]);
-            }
+            cur = append_hex(cur, *c);
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
         } else {
@@ -217,4 +187,4 @@ wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value) {
     return ret;
 }
 
-wchar_t* quote_name_only(wchar_t* key, wchar_t* unused_value) { return wcsdup(key); }
+char* quote_name_only(char* key, char* unused_value) { return strdup(key); }

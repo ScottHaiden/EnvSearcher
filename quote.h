@@ -15,10 +15,8 @@
 
 #pragma once
 
-#include <wchar.h>
-
-wchar_t* quote_run_printf(wchar_t* key, wchar_t* value);
-wchar_t* quote_normal(wchar_t* key, wchar_t* value);
-wchar_t* quote_hex_encode(wchar_t* key, wchar_t* value);
-wchar_t* quote_simple_escape(wchar_t* key, wchar_t* value);
-wchar_t* quote_name_only(wchar_t* key, wchar_t* value);
+char* quote_run_printf(char* key, char* value);
+char* quote_normal(char* key, char* value);
+char* quote_hex_encode(char* key, char* value);
+char* quote_simple_escape(char* key, char* value);
+char* quote_name_only(char* key, char* value);

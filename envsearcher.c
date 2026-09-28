@@ -19,7 +19,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <locale.h>
-#include <wchar.h>
 
 #include "keyval.h"
 #include "quote.h"
@@ -29,7 +28,7 @@
 typedef struct {
     int arg_index;
     char delim;
-    wchar_t* (*quote_fn)(wchar_t*, wchar_t*);
+    char* (*quote_fn)(char*, char*);
 } options;
 
 typedef enum {
@@ -43,7 +42,7 @@ typedef struct {
     const char* help_text;
     job_e type;
     union {
-        wchar_t* (*quote_fn)(wchar_t*, wchar_t*);
+        char* (*quote_fn)(char*, char*);
         char delim;
     } value;
 } flag;
@@ -167,18 +166,6 @@ static void sort_env(char** envp) {
     return qsort(envp, cur - envp, sizeof(*envp), &compare);
 }
 
-static wchar_t* get_needle(const char* str) {
-    if (!str) return NULL;
-
-    const size_t len = mbstowcs(NULL, str, 0);
-    if (!len) DIE("mbstowcs");
-
-    wchar_t* const ret = calloc(len + 1, sizeof(*ret));
-    mbstowcs(ret, str, len + 1);
-
-    return ret;
-}
-
 int main(int argc, char * argv[], char * envp[]) {
     setlocale(LC_ALL, "");
 
@@ -187,7 +174,8 @@ int main(int argc, char * argv[], char * envp[]) {
     const int nargs = argc - options.arg_index;
     if (nargs > 1) exit(2);
 
-    wchar_t* const needle = get_needle(argv[options.arg_index]);
+    char* const needle = argv[options.arg_index] ? argv[options.arg_index] : "";
+    const size_t needle_len = strlen(needle);
 
     sort_env(envp);
 
@@ -197,17 +185,15 @@ int main(int argc, char * argv[], char * envp[]) {
         keyval* const kv = keyval_new(*cur);
         if (!kv) continue;
 
-        if (!needle || wcsstr(kv->key, needle)) {
+        if (!needle || memmem(kv->key, kv->key_len, needle, needle_len)) {
             any_matched = true;
-            wchar_t* const message = options.quote_fn(kv->key, kv->value);
-            printf("%ls%c", message, options.delim);
+            char* const message = options.quote_fn(kv->key, kv->value);
+            printf("%s%c", message, options.delim);
             free(message);
         }
 
         free(kv);
     }
-
-    free(needle);
 
     return any_matched ? EXIT_SUCCESS : EXIT_FAILURE;
 }

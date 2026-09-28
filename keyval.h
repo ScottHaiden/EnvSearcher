@@ -15,11 +15,11 @@
 
 #pragma once
 
-#include <wchar.h>
-
 typedef struct {
-    wchar_t* value;
-    wchar_t key[];
+    size_t key_len;
+    size_t val_len;
+    char* value;
+    char key[];
 } keyval;
 
 keyval* keyval_new(const char* str);
