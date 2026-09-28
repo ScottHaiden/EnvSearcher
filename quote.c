@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <ctype.h>
+#include <wctype.h>
 
 #include "quote.h"
 
@@ -136,26 +136,36 @@ char* quote_simple_escape(char* key, char* value) {
     static const char kHexSeqPrefix[] = "$'";
 
     const size_t key_len = strlen(key);
+    const size_t val_len = strlen(value);
+    char* end = &value[val_len];
 
     size_t overhead = ZTALEN(kAssign) + ZTALEN(kSingleQuote) + 1;
 
     size_t enc_len = 0;
-    for (const char* cur = value; *cur; ++cur) {
-        if (*cur == '\'') {
+    for (const char* c = value; *c;) {
+        const int clen = mblen(c, end - c);
+
+        wchar_t wc;
+        const size_t converted = mbstowcs(&wc, c, 1);
+        assert(converted == 1);
+
+        if (wc == L'\'') {
             enc_len +=
                 ZTALEN(kSingleQuote) +
                 ZTALEN(kEscapedQuote) +
                 ZTALEN(kSingleQuote);
-        } else if (!isprint(*cur)) {
+        } else if (!iswprint(wc)) {
             enc_len +=
                 ZTALEN(kSingleQuote) +  // close previous sequence
                 ZTALEN(kHexSeqPrefix) + // open hex sequence
-                4 +                     // \x00 for  the byte
+                clen * 4 +              // \x00 for  the byte
                 ZTALEN(kSingleQuote) +  // close hex sequence
                 ZTALEN(kSingleQuote);   // open normal sequence
         } else {
-            ++enc_len;
+            enc_len += clen;
         }
+
+        c += clen;
     }
 
     const size_t ret_len = key_len + enc_len + overhead;
@@ -165,20 +175,28 @@ char* quote_simple_escape(char* key, char* value) {
     advance(&cur, key, 0);
     advance(&cur, kAssign, ZTALEN(kAssign));
 
-    for (const char* c = &value[0]; *c; ++c) {
-        if (*c == '\'') {
+    for (const char* c = &value[0]; *c;) {
+        const int clen = mblen(c, end - c);
+
+        wchar_t wc;
+        const size_t converted = mbstowcs(&wc, c, 1);
+        assert(converted == 1);
+
+        if (wc == L'\'') {
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kEscapedQuote, ZTALEN(kEscapedQuote));
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-        } else if (!isprint(*c)) {
+        } else if (!iswprint(wc)) {
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kHexSeqPrefix, ZTALEN(kHexSeqPrefix));
-            cur = append_hex(cur, *c);
+            for (int i = 0; i < clen; ++i) cur = append_hex(cur, c[i]);
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
             advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
         } else {
-            advance(&cur, c, 1);
+            advance(&cur, c, clen);
         }
+
+        c += clen;
     }
 
     advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
