@@ -57,7 +57,9 @@ char* quote_run_printf(char* key, char* value) {
     posix_spawn_file_actions_addclose(&file_actions, STDIN_FILENO);
     posix_spawn_file_actions_addclose(&file_actions, STDERR_FILENO);
     posix_spawn_file_actions_adddup2(&file_actions, fd, STDOUT_FILENO);
-    if (posix_spawnp(&child, "printf", &file_actions, NULL, argv, NULL)) DIE("posix_spawnp");
+    if (posix_spawnp(&child, "printf", &file_actions, NULL, argv, environ)) {
+        DIE("posix_spawnp");
+    }
     posix_spawn_file_actions_destroy(&file_actions);
 
     int waitstatus = 0;
