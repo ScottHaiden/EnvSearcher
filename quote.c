@@ -29,19 +29,25 @@
 #define DIE(msg) do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define ZTALEN(a) (sizeof(a) / sizeof(*a) - 1)
 
+typedef void(*advance_fn)(char** cur, const char* new, size_t nchar);
+
+static inline void advance_noop(char** cur, const char*, size_t nchar) {
+    *cur += nchar;
+}
+
 static inline void advance(char** cur, const char* new, size_t nchar) {
     *cur = mempcpy(*cur, new, nchar ? nchar : strlen(new));
 }
 
-static inline char* append_hex(char* cur, char new) {
+static inline char* append_hex(advance_fn fn, char* cur, char new) {
     static const char kTable[] = "0123456789abcdef";
     static const char kPrefix[] = "\\x";
 
     const unsigned byte = new;
 
-    advance(&cur, kPrefix, ZTALEN(kPrefix));
-    advance(&cur, &kTable[(byte >> 4) & 0x0f], 1);
-    advance(&cur, &kTable[(byte >> 0) & 0x0f], 1);
+    fn(&cur, kPrefix, ZTALEN(kPrefix));
+    fn(&cur, &kTable[(byte >> 4) & 0x0f], 1);
+    fn(&cur, &kTable[(byte >> 0) & 0x0f], 1);
 
     return cur;
 }
@@ -104,8 +110,6 @@ char* quote_normal(char* key, char* value) {
 }
 
 char* quote_hex_encode(char* key, char* value) {
-    static const char kTable[] = "0123456789abcdef";
-
     static const char kAssignment[] = "=$'";
     static const char kCloseQuote[] = "'";
 
@@ -122,7 +126,7 @@ char* quote_hex_encode(char* key, char* value) {
     advance(&cur, kAssignment, ZTALEN(kAssignment));
 
     for (unsigned i = 0; i < val_len; ++i) {
-        cur = append_hex(cur, value[i]);
+        cur = append_hex(&advance, cur, value[i]);
     }
 
     advance(&cur, kCloseQuote, ZTALEN(kCloseQuote));
@@ -131,77 +135,69 @@ char* quote_hex_encode(char* key, char* value) {
     return ret;
 }
 
-char* quote_simple_escape(char* key, char* value) {
-    static const char kAssign[] = "='";
+size_t _simple_escape(char* out, size_t len, const char* value) {
     static const char kSingleQuote[] = "'";
     static const char kEscapedQuote[] = "\\'";
     static const char kHexSeqPrefix[] = "$'";
 
-    const size_t key_len = strlen(key);
     const size_t val_len = strlen(value);
-    char* end = &value[val_len];
+    const char* end = &value[val_len];
 
-    size_t overhead = ZTALEN(kAssign) + ZTALEN(kSingleQuote) + 1;
+    const advance_fn adv = len ? &advance : &advance_noop;
 
-    size_t enc_len = 0;
+    char* cur = out;
+    adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+
     for (const char* c = value; *c;) {
         const int clen = mblen(c, end - c);
 
         wchar_t wc;
         const size_t converted = mbstowcs(&wc, c, 1);
-        assert(converted == 1);
+        assert(converted == 1 || clen < 0);
 
         if (wc == L'\'') {
-            enc_len +=
-                ZTALEN(kSingleQuote) +
-                ZTALEN(kEscapedQuote) +
-                ZTALEN(kSingleQuote);
-        } else if (!iswprint(wc)) {
-            enc_len +=
-                ZTALEN(kSingleQuote) +  // close previous sequence
-                ZTALEN(kHexSeqPrefix) + // open hex sequence
-                clen * 4 +              // \x00 for  the byte
-                ZTALEN(kSingleQuote) +  // close hex sequence
-                ZTALEN(kSingleQuote);   // open normal sequence
+            adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+            adv(&cur, kEscapedQuote, ZTALEN(kSingleQuote));
+            adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+        } else if (!iswprint(wc) || clen < 0) {
+            const size_t max = clen < 0 ? 1 : clen;
+            adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+            adv(&cur, kHexSeqPrefix, ZTALEN(kHexSeqPrefix));
+            for (int i = 0; i < max; ++i) {
+                cur = append_hex(adv, cur, c[i]);
+            }
+            adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+            adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
         } else {
-            enc_len += clen;
+            adv(&cur, c, clen);
         }
 
-        c += clen;
+        c += clen < 0 ? 1 : clen;
     }
 
-    const size_t ret_len = key_len + enc_len + overhead;
+    adv(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+
+    return cur - out;
+}
+
+char* quote_simple_escape(char* key, char* value) {
+    static const char kAssign[] = "=";
+
+    const size_t key_len = strlen(key);
+    const size_t escaped_val_len = _simple_escape(NULL, 0, value);
+    const size_t ret_len = 
+        key_len +
+        ZTALEN(kAssign) +
+        escaped_val_len +
+        1;
+
     char* const ret = calloc(ret_len, sizeof(*ret));
+    if (!ret) DIE("calloc");
 
     char* cur = ret;
     advance(&cur, key, 0);
     advance(&cur, kAssign, ZTALEN(kAssign));
-
-    for (const char* c = &value[0]; *c;) {
-        const int clen = mblen(c, end - c);
-
-        wchar_t wc;
-        const size_t converted = mbstowcs(&wc, c, 1);
-        assert(converted == 1);
-
-        if (wc == L'\'') {
-            advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-            advance(&cur, kEscapedQuote, ZTALEN(kEscapedQuote));
-            advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-        } else if (!iswprint(wc)) {
-            advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-            advance(&cur, kHexSeqPrefix, ZTALEN(kHexSeqPrefix));
-            for (int i = 0; i < clen; ++i) cur = append_hex(cur, c[i]);
-            advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-            advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
-        } else {
-            advance(&cur, c, clen);
-        }
-
-        c += clen;
-    }
-
-    advance(&cur, kSingleQuote, ZTALEN(kSingleQuote));
+    cur += _simple_escape(cur, escaped_val_len + 1, value);
 
     assert(cur == &ret[ret_len - 1]);
     return ret;
